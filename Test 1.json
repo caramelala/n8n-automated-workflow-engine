@@ -1,0 +1,552 @@
+{
+  "name": "test1",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 7-31 * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -160,
+        240
+      ],
+      "id": "24efaeb2-54f8-4efb-a247-5419f9c..",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1DeUt4Px1e80TC3CZEad0MnfKOuM5nCmT8GlpAt.....",
+          "mode": "list",
+          "cachedResultName": "AHASS_Network_Insight_v3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1DeUt4Px1e80TC3CZEad0MnfKOuM5nCmT8GlpAtk7rZU/edit?usp=dri.."
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1144947820,
+          "mode": "list",
+          "cachedResultName": "Fact_Area",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1DeUt4Px1e80TC3CZEad0MnfKOuM5nCmT8GlpAtk7rZU/edit#gid=11449.."
+        },
+        "combineFilters": "OR",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "41901994-fe8c-4349-a630-09b45137c8ba",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "7vTnhtOCMIqV8cnK",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "items = _items\n\ndef clean(val):\n    return str(val).strip() if val is not None else \"\"\n\n# Urutan prioritas dari terendah (Critical) ke tertinggi (Sustain)\nkpi_order = {\n    \"CRITICAL\": 1, \n    \"RISK\": 2, \n    \"WARNING\": 3, \n    \"SUSTAIN\": 4\n}\n\ndealers = []\nfor item in items:\n    data = item.get(\"json\", {})\n    \n    # Ambil spesifik dari kolom B (Kode AHASS), C (Nama AHASS), I (Status), G (Area)\n    no_h2 = clean(data.get(\"Kode AHASS\") or data.get(\"No H2\"))\n    name = clean(data.get(\"Nama AHASS\") or data.get(\"Dealer Name\"))\n    kpi = clean(data.get(\"Status\")).upper()         # Kolom I (Status)\n    area_g = clean(data.get(\"Area\"))                # Kolom G (Area / Sorting pendukung)\n    \n    # Abaikan baris header atau data kosong\n    if not name or name.upper() in [\"NAMA AHASS\", \"DEALER NAME\"] or kpi not in kpi_order:\n        continue\n        \n    dealers.append({\n        \"col_b\": no_h2,\n        \"col_c\": name,\n        \"col_i\": kpi,       # Kolom I (Status)\n        \"col_g\": area_g if area_g else \"-\", # Kolom G (Area)\n        \"rank\": kpi_order[kpi]\n    })\n\n# Urutkan berdasarkan prioritas rank KPI (Critical dulu, baru Risk, Warning, Sustain)\ndealers.sort(key=lambda x: (x[\"rank\"], x[\"col_g\"]))\ntop_2 = dealers[:2]\n\n# Buat Tabel HTML dengan 4 Kolom: Kode AHASS, Nama AHASS, KPI, Keterangan\nhtml_table = \"\"\"\n<table border=\"1\" cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse: collapse; width: 100%; font-family: Arial, sans-serif;\">\n  <tr style=\"background-color: #f2f2f2; text-align: left;\">\n    <th>Kode AHASS</th>\n    <th>Nama AHASS</th>\n    <th>KPI</th>\n    <th>Keterangan</th>\n  </tr>\n\"\"\"\n\nfor d in top_2:\n    html_table += f\"\"\"\n  <tr>\n    <td>{d['col_b']}</td>\n    <td>{d['col_c']}</td>\n    <td>{d['col_i']}</td>\n    <td>{d['col_g']}</td>\n  </tr>\n\"\"\"\nhtml_table += \"</table>\"\n\nreturn [{\n    \"json\": {\n        \"subject\": \"Laporan Performance Top 6 Prioritas AHASS\",\n        \"html\": f\"<p>Berikut adalah 6 dealer AHASS prioritas Performance (Unit Entry) diurutkan dari status Critical:</p>{html_table}\"\n    }\n}]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "c0685f75-2f18-40c7-8bd0-847a6a7c7168",
+      "name": "Code in Python1"
+    },
+    {
+      "parameters": {
+        "sendTo": "cara51373@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        0
+      ],
+      "id": "35ca1c7f-694e-4eca-9fc0-d0052983cf0f",
+      "name": "Send a message",
+      "webhookId": "5b1d4e43-0b81-4a53-9afd-688582091e1d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "XTSvMxr5v4UKB1w6",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1qlp_BUC-c4mohrD9dXhmaHMQdNMDV0ptOZyN9v4ET04",
+          "mode": "list",
+          "cachedResultName": "Template_CRM_Contribution_All_AHASS_REVISI_INPUT_MARKED kalkulator"
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qlp_BUC-c4mohrD9dXhmaHMQdNMDV0ptOZyN9v4E..."
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 618437559,
+          "mode": "list",
+          "cachedResultName": "CRM Contribution All AHASS",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qlp_BUC-c4mohrD9dXhmaHMQdNMDV0ptOZyN9v4ET04/edit#gid=..."
+        },
+        "combineFilters": "OR",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        576
+      ],
+      "id": "d61c9619-f8dc-4f09-a5f5-65fe8a302ea6",
+      "name": "Get row(s) in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "7vTnhtOCMIqV8cnK",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "items = _items\n\ndef clean(val):\n    return str(val).strip() if val is not None else \"\"\n\noverall_order = {\"BRONZE\": 1, \"SILVER\": 2, \"GOLD\": 3, \"PLATINUM\": 4}\necosystem_order = {\"QUALITY CHECK CRM\": 1, \"BUTUH TEAM ASSIST\": 2, \"CRM HEALTHY\": 3}\n\ndealers = []\nfor item in items:\n    data = item.get(\"json\", {})\n    no_h2 = clean(data.get(\"No H2\") or data.get(\"Kode AHASS\"))\n    name = clean(data.get(\"Dealer Name\") or data.get(\"Nama AHASS\"))\n    overall = clean(data.get(\"Overall CRM Effectiveness\")).upper()\n    ecosystem = clean(data.get(\"Ecosystem Health\")).upper()\n\n    if not name or overall not in overall_order:\n        continue\n        \n    dealers.append({\n        \"kode_ahass\": no_h2,\n        \"nama ahass\": name,\n        \"kpi\": overall,\n        \"keterangan\": ecosystem,  # Kolom AB dijadikan isi Keterangan\n        \"overall_rank\": overall_order[overall],\n        \"ecosystem_rank\": ecosystem_order.get(ecosystem, 99)\n    })\n\n# Urutkan berdasarkan Overall CRM lalu Ecosystem Health (Kolom AB)\ndealers.sort(key=lambda x: (x[\"overall_rank\"], x[\"ecosystem_rank\"]))\ntop_2 = dealers[:2]\n\n# Buat Tabel HTML dengan 4 Kolom: No H2, Dealer Name, KPI, Keterangan\nhtml_table = \"\"\"\n<table border=\"1\" cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse: collapse; width: 100%; font-family: Arial, sans-serif;\">\n  <tr style=\"background-color: #f2f2f2;\">\n    <th style=\"text-align: left;\">No H2</th>\n    <th style=\"text-align: left;\">Dealer Name</th>\n    <th style=\"text-align: left;\">KPI</th>\n    <th style=\"text-align: left;\">Keterangan</th>\n  </tr>\n\"\"\"\n\nfor d in top_2:\n    html_table += f\"\"\"\n  <tr>\n    <td>{d['kode_ahass']}</td>\n    <td>{d['nama ahass']}</td>\n    <td>{d['kpi']}</td>\n    <td>{d['keterangan']}</td>\n  </tr>\n\"\"\"\nhtml_table += \"</table>\"\n\nreturn [{\n    \"json\": {\n        \"subject\": \"Laporan CRM Top 6 Prioritas AHASS\",\n        \"html\": f\"<p>Berikut adalah 6 dealer AHASS prioritas CRM:</p>{html_table}\"\n    }\n}]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        624
+      ],
+      "id": "39cd3425-9f56-4cfb-9492-d8aa0bdc28de",
+      "name": "Code in Python2"
+    },
+    {
+      "parameters": {
+        "sendTo": "cara51373@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        624
+      ],
+      "id": "df6c3e6e-48dc-40a1-b820-b770e4981ab8",
+      "name": "Send a message1",
+      "webhookId": "fc7497af-51eb-4ca2-b470-fa369e5f9662",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "XTSvMxr5v4UKB1w6",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "sumateranetwork08@gmail.com",
+          "mode": "list",
+          "cachedResultName": "sumateranetwork08@gmail.com"
+        },
+        "additionalFields": {
+          "attendees": [
+            "yunanisarlamartiza@gmail.com",
+            "juwitasofiyanti@gmail.com"
+          ],
+          "summary": "=Berikut Jadwal Supervisi Dealer: {{ $json.dealer_name || $json.Dealer_Name }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1152,
+        288
+      ],
+      "id": "1fe7b729-9a6f-4e2d-a559-289623d51ef7",
+      "name": "Create an event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "zNYF0lUNOzZNsK8H",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "all_items = _items\n\ninput1_items = []\ninput2_items = []\ninput3_items = []\nmaster_items = []\n\nfor item in all_items:\n    if isinstance(item, dict):\n        d = item.get(\"json\", item)\n    else:\n        d = item.json if hasattr(item, \"json\") else item\n    \n    if not isinstance(d, dict):\n        continue\n        \n    keys = d.keys()\n    \n    if \"Score\" in keys and \"Kode AHASS\" in keys:\n        input1_items.append(d)\n    elif \"NO. AHASS\" in keys or \"TOTAL LEAD MEASURE\" in keys or \"LEAD MEASURE\" in keys:\n        input2_items.append(d)\n    elif \"Overall CRM Effectiveness\" in keys or \"Ecosystem Health\" in keys:\n        input3_items.append(d)\n    elif \"Pareto\" in keys and \"No AHASS\" in keys:\n        master_items.append(d)\n\ndef clean(val):\n    return str(val).strip() if val is not None else \"\"\n\ndef parse_float(val):\n    try:\n        s = clean(val).upper()\n        if s in [\"\", \"N/A\", \"-\", \"NONE\"]:\n            return float(\"inf\")\n        return float(s.replace(\",\", \".\"))\n    except:\n        return float(\"inf\")\n\n# 1. Referensi Master dari sheet 'data AHASS untuk sharla'\nmaster_map = {}\nfor row in master_items:\n    no_ahass = clean(row.get(\"No AHASS\"))\n    if no_ahass:\n        master_map[no_ahass] = {\n            \"pareto\": clean(row.get(\"Pareto\")).lower(),\n            \"nama_resmi\": clean(row.get(\"Nama AHASS\"))\n        }\n\ndef get_top_2_strict(grouped_list):\n    grouped_list.sort(key=lambda x: x[\"score\"])\n    return grouped_list[:2]\n\n# ==============================================================================\n# 1. INPUT 1: PERFORMANCE\n# ==============================================================================\nkpi_perf_order = {\"CRITICAL\": 1, \"RISK\": 2, \"WARNING\": 3, \"SUSTAIN\": 4}\ngroup_perf = {}\n\nfor data in input1_items:\n    no_h2 = clean(data.get(\"Kode AHASS\"))\n    status = clean(data.get(\"Status\")).upper()\n    area_g = clean(data.get(\"Area\"))\n    skor_h = parse_float(data.get(\"Score\"))\n\n    if not no_h2:\n        continue\n\n    info = master_map.get(no_h2, {\n        \"pareto\": clean(data.get(\"Pareto\") or \"non pareto\").lower(),\n        \"nama_resmi\": clean(data.get(\"Nama AHASS\"))\n    })\n\n    if no_h2 not in group_perf or skor_h < group_perf[no_h2][\"score\"]:\n        group_perf[no_h2] = {\n            \"Pareto\": info[\"pareto\"].title(),\n            \"No AHASS\": no_h2,\n            \"Nama AHASS\": info[\"nama_resmi\"] if info[\"nama_resmi\"] else clean(data.get(\"Nama AHASS\")),\n            \"KPI\": status if status else \"WARNING\",\n            \"Keterangan\": area_g if area_g else status,\n            \"Nama Dashboard\": \"Performance\",\n            \"score\": skor_h\n        }\n\ntop2_performance = get_top_2_strict(list(group_perf.values()))\n\n# ==============================================================================\n# 2. INPUT 2: SPAREPART (Urutan KPI: Critical -> Risk -> Warning -> Sustain)\n# (Urutan Fokus Area/Keterangan: PROSES -> PRIMESES -> PEOPLE -> PROMOSI)\n# ==============================================================================\nsparepart_kpi_order = {\"CRITICAL\": 1, \"RISK\": 2, \"WARNING\": 3, \"SUSTAIN\": 4}\nfokus_area_order = {\"PROSES\": 1, \"PRIMESES\": 2, \"PEOPLE\": 3, \"PROMOSI\": 4}\n\ngroup_sparepart = {}\n\nfor data in input2_items:\n    no_h2 = clean(data.get(\"NO. AHASS\"))\n    skor_br = parse_float(data.get(\"TOTAL LEAD MEASURE\") or data.get(\"LEAD MEASURE\"))\n    final_kpi = clean(data.get(\"FINAL\") or data.get(\"LAG MEASURE\") or \"CRITICAL\").upper()\n    fokus_area = clean(data.get(\"FOKUS AREA\") or data.get(\"Chanel\") or \"PROSES\").upper()\n\n    if not no_h2:\n        continue\n\n    info = master_map.get(no_h2, {\n        \"pareto\": \"non pareto\",\n        \"nama_resmi\": clean(data.get(\"Nama AHASS\"))\n    })\n\n    if no_h2 not in group_sparepart or skor_br < group_sparepart[no_h2][\"score\"]:\n        group_sparepart[no_h2] = {\n            \"Pareto\": info[\"pareto\"].title(),\n            \"No AHASS\": no_h2,\n            \"Nama AHASS\": info[\"nama_resmi\"] if info[\"nama_resmi\"] else clean(data.get(\"Nama AHASS\")),\n            \"KPI\": final_kpi,\n            \"Keterangan\": fokus_area,\n            \"Nama Dashboard\": \"Sparepart\",\n            \"score\": skor_br,\n            \"kpi_rank\": sparepart_kpi_order.get(final_kpi, 99),\n            \"fokus_rank\": fokus_area_order.get(fokus_area, 99)\n        }\n\n# Urutkan Sparepart berdasarkan prioritas KPI terburuk, lalu prioritas Fokus Area, lalu skor terendah\nsparepart_list = list(group_sparepart.values())\nsparepart_list.sort(key=lambda x: (x[\"kpi_rank\"], x[\"fokus_rank\"], x[\"score\"]))\ntop2_sparepart = sparepart_list[:2]\n\n# ==============================================================================\n# 3. INPUT 3: CRM\n# ==============================================================================\nkpi_crm_order = {\"BRONZE\": 1, \"SILVER\": 2, \"GOLD\": 3, \"PLATINUM\": 4}\necosystem_order = {\"QUALITY CHECK CRM\": 1, \"BUTUH TEAM ASSIST\": 2, \"CRM HEALTHY\": 3}\nlist_crm = []\nseen_crm = set()\n\nfor data in input3_items:\n    no_h2 = clean(data.get(\"No H2\") or data.get(\"Kode AHASS\") or data.get(\"No AHASS\"))\n    crm_aa = clean(data.get(\"Overall CRM Effectiveness\")).upper()\n    health_ab = clean(data.get(\"Ecosystem Health\")).upper()\n\n    if not no_h2 or no_h2 in seen_crm:\n        continue\n    seen_crm.add(no_h2)\n\n    info = master_map.get(no_h2, {\n        \"pareto\": \"non pareto\",\n        \"nama_resmi\": clean(data.get(\"Dealer Name\") or data.get(\"Nama AHASS\"))\n    })\n\n    list_crm.append({\n        \"Pareto\": info[\"pareto\"].title(),\n        \"No AHASS\": no_h2,\n        \"Nama AHASS\": info[\"nama_resmi\"] if info[\"nama_resmi\"] else clean(data.get(\"Dealer Name\")),\n        \"KPI\": crm_aa if crm_aa else \"SILVER\",\n        \"Keterangan\": health_ab if health_ab else \"QUALITY CHECK CRM\",\n        \"Nama Dashboard\": \"CRM\",\n        \"rank\": kpi_crm_order.get(crm_aa, 99)\n    })\n\nlist_crm.sort(key=lambda x: x[\"rank\"])\ntop2_crm = list_crm[:2]\n\n# ==============================================================================\n# 4. GABUNGKAN TOTAL 6 BARIS (2 Performance + 2 Sparepart + 2 CRM)\n# ==============================================================================\ntotal_6_items = top2_performance + top2_sparepart + top2_crm\n\nresult = []\nfor d in total_6_items:\n    result.append({\n        \"json\": {\n            \"Pareto\": d[\"Pareto\"],\n            \"No AHASS\": d[\"No AHASS\"],\n            \"Nama AHASS\": d[\"Nama AHASS\"],\n            \"KPI\": d[\"KPI\"],\n            \"Keterangan\": d[\"Keterangan\"],\n            \"Nama Dashboard\": d[\"Nama Dashboard\"]\n        }\n    })\n\nreturn result"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        192
+      ],
+      "id": "258e8f4a-2d66-4c20-a7f9-a20d70330718",
+      "name": "Code in Python"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1KU50k6eHhMk9xLzVFcnGgPXD4ZFrWmy0m2G2POf8mLc",
+          "mode": "list",
+          "cachedResultName": "Master Dasboard H3.",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KU50k6eHhMk9xLzVFcnGgPXD4ZFrWmy0m2G2POf8mLc/edit?us.."
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KU50k6eHhMk9xLzVFcnGgPXD4ZFrWmy0m2G2POf8m...."
+        },
+        "combineFilters": "OR",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        384
+      ],
+      "id": "27e49084-b7fa-4bae-a439-f9f2230b0a2e",
+      "name": "Get row(s) in sheet2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "7vTnhtOCMIqV8cnK",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "items = _items\n\ndef clean(val):\n    return str(val).strip() if val is not None else \"\"\n\nstatus_order = {\n    \"CRITICAL\": 1, \n    \"RISK\": 2, \n    \"WARNING\": 3, \n    \"SUSTAIN\": 4\n}\n\nKPI_priority = [\"PROSES\", \"PRIMESES\", \"PEOPLE\", \"PROMOSI\"]\n\ndealers = []\n\nfor item in items:\n    data = item.get(\"json\", {})\n    values = list(data.values())\n    \n    if len(values) < 3:\n        continue\n\n    # DIKUNCI PRESISI SESUAI SHEET: Kolom B (index 1) adalah NO. AHASS, Kolom C (index 2) adalah Nama AHASS\n    no_ahass = clean(data.get(\"NO. AHASS\") or values[1])\n    name = clean(data.get(\"Nama AHASS\") or values[2])\n\n    if not no_ahass or not name:\n        continue\n    \n    upper_name = name.upper()\n    upper_no = no_ahass.upper()\n    \n    # Buang baris header\n    if \"NAMA AHASS\" in upper_name or \"DEALER NAME\" in upper_name or \"ID TEDS\" in upper_no or \"NO. AHASS\" in upper_no or upper_name == \"EMPTY\":\n        continue\n\n    status_key = \"\"\n    for v in values:\n        v_upper = str(v).upper()\n        for s in status_order.keys():\n            if s in v_upper:\n                status_key = s\n                break\n        if status_key:\n            break\n\n    KPI_val = \"-\"\n    for v in values:\n        v_str = clean(v)\n        v_upper = v_str.upper()\n        if any(fp in v_upper for fp in KPI_priority):\n            KPI_val = v_str\n            break\n\n    dealers.append({\n        \"col_b\": no_ahass, # NO. AHASS\n        \"col_c\": name,     # Nama AHASS\n        \"col_bv\": status_key if status_key else \"CRITICAL\",\n        \"col_bw\": KPI_val,\n        \"rank\": status_order.get(status_key, 1)\n    })\n\ndealers.sort(key=lambda x: x[\"rank\"])\ntop_2 = dealers[:2]\n\nhtml_table = \"\"\"\n<table border=\"1\" cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse: collapse; width: 100%; font-family: Arial, sans-serif;\">\n  <tr style=\"background-color: #f2f2f2; text-align: left;\">\n    <th>NO. AHASS</th>\n    <th>Nama AHASS</th>\n    <th>KPI</th>\n    <th>Keterangan</th>\n  </tr>\n\"\"\"\n\nfor d in top_2:\n    html_table += f\"\"\"\n  <tr>\n    <td>{d['col_b']}</td>\n    <td>{d['col_c']}</td>\n    <td>{d['col_bv']}</td>\n    <td>{d['col_bw']}</td>\n  </tr>\n\"\"\"\nhtml_table += \"</table>\"\n\nreturn [{\n    \"json\": {\n        \"subject\": \"Laporan Sparepart Top 2 Prioritas AHASS\",\n        \"html\": f\"<p>Berikut adalah 2 dealer AHASS prioritas Sparepart diurutkan dari status Critical:</p>{html_table}\"\n    }\n}]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        384
+      ],
+      "id": "690ba928-7766-4539-b27c-59b740499aa9",
+      "name": "Code in Python3"
+    },
+    {
+      "parameters": {
+        "sendTo": "cara51373@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        384
+      ],
+      "id": "78ff3537-09d2-48ea-a33b-c53b70e3865b",
+      "name": "Send a message2",
+      "webhookId": "4f078085-8020-4e9f-b05a-65246491434c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "XTSvMxr5v4UKB1w6",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1_iQ6UwQgs-PNSyFwPVkIbK4EtOnpxY4kJPtJTl6y8Ao",
+          "mode": "list",
+          "cachedResultName": "data AHASS untuk sharla",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1_iQ6UwQgs-PNSyFwPVkIbK4EtOnpxY4kJPtJTl6y8Ao/edit?u.."
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1651928886,
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1_iQ6UwQgs-PNSyFwPVkIbK4EtOnpxY4kJPtJTl6y8Ao/edit#gi.."
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Pareto": "={{ $json['Pareto'] }}",
+            "Nama AHASS": "={{ $json['Nama AHASS'] }}",
+            "No AHASS": "={{ $json['No AHASS'] }}",
+            "KPI": "={{ $json['KPI'] }}",
+            "Keterangan": "={{ $json['Keterangan'] }}",
+            "Nama Dashboard": "={{ $json['Nama Dashboard'] }}"
+          },
+          "matchingColumns": [
+            "No AHASS"
+          ],
+          "schema": [
+            {
+              "id": "Pareto",
+              "displayName": "Pareto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "No AHASS",
+              "displayName": "No AHASS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Nama AHASS",
+              "displayName": "Nama AHASS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "KPI",
+              "displayName": "KPI",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Keterangan",
+              "displayName": "Keterangan",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Nama Dashboard",
+              "displayName": "Nama Dashboard",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        192
+      ],
+      "id": "3b8e8641-7e89-44af-a5a2-1dd0544027b7",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yb5pCZRYRuXp7L2U",
+          "name": "Google Sheets account 3"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get row(s) in sheet1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get row(s) in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Code in Python1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in Python",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in Python1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet1": {
+      "main": [
+        [
+          {
+            "node": "Code in Python2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in Python",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in Python2": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Create an event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message1": {
+      "main": [
+        [
+          {
+            "node": "Create an event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in Python": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet2": {
+      "main": [
+        [
+          {
+            "node": "Code in Python3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in Python",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in Python3": {
+      "main": [
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message2": {
+      "main": [
+        [
+          {
+            "node": "Create an event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "1f0a8a84-5b1e-409c-9369-3fc1f59244b9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8460fae6969f62950c728b84e35de350efacebbb134145f45ba23936b6ae9997"
+  },
+  "nodeGroups": [],
+  "id": "nAtC8vSHzrX37cM3",
+  "tags": []
+}
